@@ -3,6 +3,7 @@ from deap import base
 from deap import creator
 from deap import tools
 from deap import gp
+import numpy
 
 NO_OF_INPUTS = 3
 inputs = [[0] * NO_OF_INPUTS for i in xrange(2 ** NO_OF_INPUTS)]

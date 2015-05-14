@@ -3,8 +3,12 @@ from deap import base
 from deap import creator
 from deap import tools
 from deap import gp
+import operator
 import numpy
-
+import matplotlib.pyplot as plt
+import networkx as nx
+import pygraphviz as pgv
+	
 NO_OF_INPUTS = 3
 inputs = [[0] * NO_OF_INPUTS for i in xrange(2 ** NO_OF_INPUTS)]
 outputs = [None] * (2 ** NO_OF_INPUTS)
@@ -19,7 +23,7 @@ for i in xrange(2 ** NO_OF_INPUTS):
             inputs[i][j] = 1
             value -= divisor
     
-outputs = [0,0,1,1,1,1,1,1]
+outputs = [1,1,0,0,0,0,1,1]
 
 def m(a,b,c):
 	return (a&b|b&c|a&c)
@@ -37,31 +41,34 @@ pset.renameArguments(IN1='B')
 pset.renameArguments(IN2='C')
 """pset.renameArguments(IN3='D')"""
 
-creator.create("FitnessMax", base.Fitness, weights=(10.0,))
-creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax)
+creator.create("Fitness", base.Fitness, weights=(10.0,-1.0))
+creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness)
 
 toolbox = base.Toolbox()
-toolbox.register("expr", gp.genGrow, pset=pset, min_=0, max_=5)
+toolbox.register("expr", gp.genGrow, pset=pset, min_=0, max_=15)
 toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("compile", gp.compile, pset=pset)
 
 def evalCircuit(individual):
 	func = toolbox.compile(expr=individual)
-	fitness = sum(func(*in_) == out for in_, out in zip(inputs, outputs)),
+	fitness = sum(func(*in_) == out for in_, out in zip(inputs, outputs))
+	maj = str(individual).count('m')
+	inv = str(individual).count('i')
 	height = individual.height
-	length = len(individual)
-	if fitness[0] == 2**NO_OF_INPUTS and height != 0:
-		fitness = list(fitness)
-		fitness[0] += float(1/height)
-		fitness = tuple(fitness)		
-	return fitness
+	"""cell_count = 5*maj + 13*inv
+	if fitness == 2**NO_OF_INPUTS and cell_count != 0:
+		fitness += float(1/cell_count)"""
+	return fitness,height
 	
 toolbox.register("evaluate", evalCircuit)
-toolbox.register("select", tools.selDoubleTournament, fitness_size=300, parsimony_size=2, fitness_first=True)
+toolbox.register("select", tools.selRoulette)
 toolbox.register("mate", gp.cxOnePoint)
-toolbox.register("expr_mut", gp.genGrow, min_=0, max_=5)
+toolbox.register("expr_mut", gp.genHalfAndHalf, min_=0, max_=2)
 toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+
+toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
 
 def getBestSolution(hof):
 	sol = "Solution Not Found"
@@ -86,7 +93,9 @@ def getBestSolution(hof):
 			minGates = gateCount
 			minLength = len(hof[j])
 	print str(sol)
-
+	print sol.height
+	print sol.fitness
+	
 def printOnlySolutions(hof):
 	sols = []
 	for i in xrange(len(hof)):
@@ -94,26 +103,20 @@ def printOnlySolutions(hof):
 		fitness = sum(func(*in_) == out for in_, out in zip(inputs, outputs)),
 		if fitness[0] == 2**NO_OF_INPUTS:
 			print hof[i]
-			hof[i].fitness
 
 def main():
 #    random.seed(10)
-    pop = toolbox.population(n=999)
-    spc_ind = creator.Individual(gp.PrimitiveTree.from_string("m(B, m(A, 1, i(C)), i(m(B, A, 1)))",pset))
-    pop += [spc_ind]
-    hof = tools.HallOfFame(100)
+    pop = toolbox.population(n=2000)
+    hof = tools.ParetoFront()
     stats = tools.Statistics(lambda ind: ind.fitness.values)
     stats.register("avg", numpy.mean)
     stats.register("std", numpy.std)
     stats.register("min", numpy.min)
     stats.register("max", numpy.max)
     
-    algorithms.eaMuPlusLambda(pop, toolbox, mu=20, lambda_=1000, cxpb=0.6, mutpb=0.2, ngen=500, stats=stats, halloffame=hof)
+    algorithms.eaMuPlusLambda(pop, toolbox, mu=1000, lambda_=2000, cxpb=0.65, mutpb=0.35, ngen=1000, stats=stats, halloffame=hof)
     
-    """printOnlySolutions(hof)
-    for i in xrange(len(sols)):
-		print str(sols[i])"""
-
+    """printOnlySolutions(hof)"""
     getBestSolution(hof)
     
 if __name__ == "__main__":

@@ -4,11 +4,7 @@ from deap import creator
 from deap import tools
 from deap import gp
 import operator
-import numpy
-import matplotlib.pyplot as plt
-import networkx as nx
-import pygraphviz as pgv
-	
+
 NO_OF_INPUTS = 3
 inputs = [[0] * NO_OF_INPUTS for i in xrange(2 ** NO_OF_INPUTS)]
 outputs = [None] * (2 ** NO_OF_INPUTS)
@@ -56,9 +52,9 @@ def evalCircuit(individual):
 	maj = str(individual).count('m')
 	inv = str(individual).count('i')
 	height = individual.height
-	"""cell_count = 5*maj + 13*inv
+	cell_count = 5*maj + 13*inv
 	if fitness == 2**NO_OF_INPUTS and cell_count != 0:
-		fitness += float(1/cell_count)"""
+		fitness += float(1/cell_count)
 	return fitness,height
 	
 toolbox.register("evaluate", evalCircuit)
